@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Todo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #c8f135;
+      --text: #f0f0f0;
+      --muted: #666;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    header {
+      margin-bottom: 48px;
+    }
+
+    header h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: var(--accent);
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 6px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 40px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 14px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--muted);
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      transition: all 0.15s;
+    }
+
+    .btn-add {
+      background: var(--accent);
+      color: #000;
+      padding: 14px 22px;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-add:hover { background: #d4f55a; }
+
+    .todo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 16px 18px;
+      animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .todo-item.done .todo-text {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .todo-check {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      background: transparent;
+      flex-shrink: 0;
+      position: relative;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .todo-item.done .todo-check {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .todo-item.done .todo-check::after {
+      content: '✓';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #000;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .todo-text {
+      flex: 1;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .btn-delete {
+      background: transparent;
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 1rem;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+    }
+
+    .todo-item:hover .btn-delete { opacity: 1; }
+    .btn-delete:hover { color: #ff5555; }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      padding: 48px 0;
+    }
+
+    .count {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .count span { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>// todo</h1>
+      <p>your stuff. get it done.</p>
+    </header>
+
+    <div class="input-row">
+      <input type="text" id="todoInput" placeholder="what needs to be done?" />
+      <button class="btn-add" onclick="addTodo()">ADD</button>
+    </div>
+
+    <div class="count" id="count"></div>
+    <div class="todo-list" id="todoList"></div>
+  </div>
+
+  <script>
+    // works both locally and when deployed
+    const API = window.location.origin
+
+    async function fetchTodos() {
+      const res = await fetch(`${API}/todos`)
+      const todos = await res.json()
+      render(todos)
+    }
+
+    function render(todos) {
+      const list = document.getElementById('todoList')
+      const count = document.getElementById('count')
+
+      if (!todos || todos.length === 0) {
+        list.innerHTML = '<div class="empty">nothing here. add something.</div>'
+        count.innerHTML = ''
+        return
+      }
+
+      const done = todos.filter(t => t.done).length
+      count.innerHTML = `<span>${done}</span> / ${todos.length} done`
+
+      list.innerHTML = todos.map(t => `
+        <div class="todo-item ${t.done ? 'done' : ''}" id="todo-${t.id}">
+          <button class="todo-check" onclick="markDone(${t.id})"></button>
+          <span class="todo-text">${t.text}</span>
+          <button class="btn-delete" onclick="deleteTodo(${t.id})">✕</button>
+        </div>
+      `).join('')
+    }
+
+    async function addTodo() {
+      const input = document.getElementById('todoInput')
+      const text = input.value.trim()
+      if (!text) return
+
+      await fetch(`${API}/todos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+
+      input.value = ''
+      fetchTodos()
+    }
+
+    async function markDone(id) {
+      await fetch(`${API}/todos/${id}`, { method: 'PUT' })
+      fetchTodos()
+    }
+
+    async function deleteTodo(id) {
+      await fetch(`${API}/todos/${id}`, { method: 'DELETE' })
+      fetchTodos()
+    }
+
+    document.getElementById('todoInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addTodo()
+    })
+
+    fetchTodos()
+  </script>
+</body>
+</html>
