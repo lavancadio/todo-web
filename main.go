@@ -147,5 +147,9 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 	})
 
-	r.Run(":8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	r.Run(":" + port)
 }
