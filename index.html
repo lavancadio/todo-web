@@ -57,7 +57,8 @@
       margin-bottom: 40px;
     }
 
-    input[type="text"] {
+    input[type="text"],
+    input[type="password"] {
       flex: 1;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -69,13 +70,12 @@
       transition: border-color 0.2s;
     }
 
-    input[type="text"]:focus {
+    input[type="text"]:focus,
+    input[type="password"]:focus {
       border-color: var(--accent);
     }
 
-    input[type="text"]::placeholder {
-      color: var(--muted);
-    }
+    input::placeholder { color: var(--muted); }
 
     button {
       cursor: pointer;
@@ -94,6 +94,15 @@
     }
 
     .btn-add:hover { background: #d4f55a; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 14px 22px;
+    }
+
+    .btn-ghost:hover { color: var(--text); border-color: var(--text); }
 
     .todo-list {
       display: flex;
@@ -181,36 +190,176 @@
     }
 
     .count span { color: var(--accent); }
+
+    .error {
+      color: #ff5555;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      margin-top: 10px;
+    }
+
+    .auth-footer {
+      margin-top: 24px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .auth-footer a {
+      color: var(--accent);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .logout-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 48px;
+    }
+
+    /* pages */
+    .page { display: none; }
+    .page.active { display: block; }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>// todo</h1>
-      <p>your stuff. get it done.</p>
-    </header>
 
-    <div class="input-row">
-      <input type="text" id="todoInput" placeholder="what needs to be done?" />
-      <button class="btn-add" onclick="addTodo()">ADD</button>
+    <!-- AUTH PAGE -->
+    <div class="page active" id="authPage">
+      <header>
+        <h1>// todo</h1>
+        <p id="authSubtitle">login to continue.</p>
+      </header>
+
+      <div id="authForm">
+        <div class="input-row">
+          <input type="text" id="authUsername" placeholder="username" />
+        </div>
+        <div class="input-row">
+          <input type="password" id="authPassword" placeholder="password" />
+          <button class="btn-add" id="authBtn" onclick="submitAuth()">LOGIN</button>
+        </div>
+        <div class="error" id="authError"></div>
+        <div class="auth-footer">
+          <span id="authToggleText">no account?</span>
+          <a onclick="toggleAuthMode()"> <span id="authToggleLink">register</span></a>
+        </div>
+      </div>
     </div>
 
-    <div class="count" id="count"></div>
-    <div class="todo-list" id="todoList"></div>
+    <!-- TODO PAGE -->
+    <div class="page" id="todoPage">
+      <div class="logout-row">
+        <header>
+          <h1>// todo</h1>
+          <p id="welcomeText">your stuff. get it done.</p>
+        </header>
+        <button class="btn-ghost" onclick="logout()">LOGOUT</button>
+      </div>
+
+      <div class="input-row">
+        <input type="text" id="todoInput" placeholder="what needs to be done?" />
+        <button class="btn-add" onclick="addTodo()">ADD</button>
+      </div>
+
+      <div class="count" id="count"></div>
+      <div class="todo-list" id="todoList"></div>
+    </div>
+
   </div>
 
   <script>
-    // works both locally and when deployed
     const API = window.location.origin
+    let isLoginMode = true
+
+    // --- AUTH ---
+
+    function toggleAuthMode() {
+      isLoginMode = !isLoginMode
+      document.getElementById('authBtn').textContent        = isLoginMode ? 'LOGIN'    : 'REGISTER'
+      document.getElementById('authSubtitle').textContent   = isLoginMode ? 'login to continue.' : 'create an account.'
+      document.getElementById('authToggleText').textContent = isLoginMode ? 'no account?' : 'have an account?'
+      document.getElementById('authToggleLink').textContent = isLoginMode ? 'register'    : 'login'
+      document.getElementById('authError').textContent = ''
+    }
+
+    async function submitAuth() {
+      const username = document.getElementById('authUsername').value.trim()
+      const password = document.getElementById('authPassword').value.trim()
+      const errorEl  = document.getElementById('authError')
+
+      if (!username || !password) {
+        errorEl.textContent = 'fill in both fields.'
+        return
+      }
+
+      const endpoint = isLoginMode ? '/login' : '/register'
+
+      const res = await fetch(`${API}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        errorEl.textContent = data.error || 'something went wrong.'
+        return
+      }
+
+      if (isLoginMode) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('username', username)
+        showTodoPage()
+      } else {
+        errorEl.style.color = '#c8f135'
+        errorEl.textContent = 'registered! now login.'
+        toggleAuthMode()
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('token')
+      localStorage.removeItem('username')
+      document.getElementById('authPage').classList.add('active')
+      document.getElementById('todoPage').classList.remove('active')
+      document.getElementById('authUsername').value = ''
+      document.getElementById('authPassword').value = ''
+    }
+
+    function showTodoPage() {
+      document.getElementById('authPage').classList.remove('active')
+      document.getElementById('todoPage').classList.add('active')
+      document.getElementById('welcomeText').textContent =
+        `hey ${localStorage.getItem('username')}. get it done.`
+      fetchTodos()
+    }
+
+    // --- HELPERS ---
+
+    function authHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('token')
+      }
+    }
+
+    // --- TODOS ---
 
     async function fetchTodos() {
-      const res = await fetch(`${API}/todos`)
+      const res = await fetch(`${API}/todos`, { headers: authHeaders() })
+
+      if (res.status === 401) { logout(); return; }
+
       const todos = await res.json()
       render(todos)
     }
 
     function render(todos) {
-      const list = document.getElementById('todoList')
+      const list  = document.getElementById('todoList')
       const count = document.getElementById('count')
 
       if (!todos || todos.length === 0) {
@@ -225,7 +374,7 @@
       list.innerHTML = todos.map(t => `
         <div class="todo-item ${t.done ? 'done' : ''}" id="todo-${t.id}">
           <button class="todo-check" onclick="markDone(${t.id})"></button>
-          <span class="todo-text">${t.text}</span>
+          <span class="todo-text">${t.title}</span>
           <button class="btn-delete" onclick="deleteTodo(${t.id})">✕</button>
         </div>
       `).join('')
@@ -233,13 +382,13 @@
 
     async function addTodo() {
       const input = document.getElementById('todoInput')
-      const text = input.value.trim()
-      if (!text) return
+      const title = input.value.trim()
+      if (!title) return
 
       await fetch(`${API}/todos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        headers: authHeaders(),
+        body: JSON.stringify({ title })
       })
 
       input.value = ''
@@ -247,12 +396,12 @@
     }
 
     async function markDone(id) {
-      await fetch(`${API}/todos/${id}`, { method: 'PUT' })
+      await fetch(`${API}/todos/${id}`, { method: 'PUT', headers: authHeaders() })
       fetchTodos()
     }
 
     async function deleteTodo(id) {
-      await fetch(`${API}/todos/${id}`, { method: 'DELETE' })
+      await fetch(`${API}/todos/${id}`, { method: 'DELETE', headers: authHeaders() })
       fetchTodos()
     }
 
@@ -260,7 +409,14 @@
       if (e.key === 'Enter') addTodo()
     })
 
-    fetchTodos()
+    document.getElementById('authPassword').addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitAuth()
+    })
+
+    // on load — check if already logged in
+    if (localStorage.getItem('token')) {
+      showTodoPage()
+    }
   </script>
 </body>
 </html>
