@@ -283,6 +283,9 @@
       document.getElementById('authToggleText').textContent = isLoginMode ? 'no account?' : 'have an account?'
       document.getElementById('authToggleLink').textContent = isLoginMode ? 'register'    : 'login'
       document.getElementById('authError').textContent = ''
+
+      document.getElementById('authUsername').value = ''
+      document.getElementById('authPassword').value = ''
     }
 
     async function submitAuth() {
@@ -316,8 +319,10 @@
         showTodoPage()
       } else {
         errorEl.style.color = '#c8f135'
-        errorEl.textContent = 'registered! now login.'
-        toggleAuthMode()
+errorEl.textContent = 'registered! now login.'
+document.getElementById('authUsername').value = ''
+document.getElementById('authPassword').value = ''
+toggleAuthMode()
       }
     }
 

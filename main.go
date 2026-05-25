@@ -8,18 +8,18 @@ import (
 	"todo-web/middleware"
 
 	"github.com/gin-gonic/gin"
-	_ "modernc.org/sqlite"
+	_ "github.com/lib/pq"
 )
 
 func initDB() *sql.DB {
-	db, err := sql.Open("sqlite", "todos.db")
+	db, err := sql.Open("postgres", "postgres://todo:secret@localhost:5432/tododb?sslmode=disable")
 	if err != nil {
 		panic(err)
 	}
 
 	db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
-			id       INTEGER PRIMARY KEY AUTOINCREMENT,
+			id       SERIAL PRIMARY KEY,
 			username TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL
 		)
@@ -27,10 +27,10 @@ func initDB() *sql.DB {
 
 	db.Exec(`
 		CREATE TABLE IF NOT EXISTS todos (
-			id      INTEGER PRIMARY KEY AUTOINCREMENT,
+			id      SERIAL PRIMARY KEY,
 			user_id INTEGER NOT NULL,
 			title   TEXT NOT NULL,
-			done    BOOLEAN NOT NULL DEFAULT 0,
+			done    BOOLEAN NOT NULL DEFAULT FALSE,
 			FOREIGN KEY (user_id) REFERENCES users(id)
 		)
 	`)

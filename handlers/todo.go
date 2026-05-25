@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -15,7 +16,7 @@ func GetTodos(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.GetUint("user_id")
 
-		rows, err := db.Query("SELECT id, user_id, title, done FROM todos WHERE user_id = ?", userID)
+		rows, err := db.Query("SELECT id, user_id, title, done FROM todos WHERE user_id = $1", userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -35,6 +36,7 @@ func GetTodos(db *sql.DB) gin.HandlerFunc {
 
 func CreateTodo(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var id uint
 		userID := c.GetUint("user_id")
 
 		var input struct {
@@ -45,13 +47,13 @@ func CreateTodo(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		result, err := db.Exec("INSERT INTO todos (user_id, title, done) VALUES (?, ?, ?)", userID, input.Title, false)
+		err := db.QueryRow("INSERT INTO todos (user_id, title, done) VALUES ($1, $2, $3) RETURNING id", userID, input.Title, false).Scan(&id)
 		if err != nil {
+			fmt.Println("CREATE TODO ERROR:", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		id, _ := result.LastInsertId()
 		todo := models.Todo{
 			ID:     uint(id),
 			UserID: userID,
@@ -72,7 +74,7 @@ func UpdateTodo(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		result, err := db.Exec("UPDATE todos SET done = 1 WHERE id = ? AND user_id = ?", id, userID)
+		result, err := db.Exec("UPDATE todos SET done = TRUE WHERE id = $1 AND user_id = $2", id, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -97,7 +99,7 @@ func DeleteTodo(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		result, err := db.Exec("DELETE FROM todos WHERE id = ? AND user_id = ?", id, userID)
+		result, err := db.Exec("DELETE FROM todos WHERE id = $1 AND user_id = $2", id, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

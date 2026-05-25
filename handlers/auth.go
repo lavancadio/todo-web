@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -30,7 +31,7 @@ func Register(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err = db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", input.Username, string(hashed))
+		_, err = db.Exec("INSERT INTO users (username, password) VALUES ($1, $2)", input.Username, string(hashed))
 		if err != nil {
 			c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
 			return
@@ -53,13 +54,14 @@ func Login(db *sql.DB) gin.HandlerFunc {
 
 		var id uint
 		var username, hashedPassword string
-		err := db.QueryRow("SELECT id, username, password FROM users WHERE username = ?", input.Username).
+		err := db.QueryRow("SELECT id, username, password FROM users WHERE username = $1", input.Username).
 			Scan(&id, &username, &hashedPassword)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 			return
 		}
 		if err != nil {
+			fmt.Println("DB ERROR:", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
